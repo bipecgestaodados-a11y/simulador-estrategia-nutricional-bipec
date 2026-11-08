@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador BIPEC | Gestão de Dados</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    bipec: {
+                        navy: '#0B1942',
+                        red: '#FF2E2E',
+                        gray: '#F3F4F6'
+                    }
+                }
+            }
+        }
+    }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    body { font-family: 'Inter', sans-serif; }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    
+    /* Configurações de Impressão (PDF) */
+    @page { size: landscape; margin: 8mm; }
+    @media print {
+        /* Ocultar elementos não imprimíveis (Gráfico, botões, inputs) */
+        .no-print, .chart-container { display: none !important; }
+        input, select, button { display: none !important; }
+        
+        body { background: white !important; color: black !important; }
+        main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
+        .print-header { display: flex !important; }
+        .shadow-sm, .shadow-lg { box-shadow: none !important; border: none !important; }
+        
+        /* Tabela no Papel */
+        table { width: 100% !important; border-collapse: collapse !important; page-break-inside: auto; }
+        thead { display: table-header-group; } /* Repete o cabeçalho na pág 2 */
+        tr { page-break-inside: avoid; page-break-after: auto; } /* Evita quebrar a linha no meio */
+        
+        /* Bordas e Células */
+        th, td { border: 1px solid #475569 !important; padding: 4px 6px !important; font-size: 10px !important; }
+        th { background-color: #f1f5f9 !important; text-align: center; color: black !important; }
+        td[colspan] { background-color: #e2e8f0 !important; color: black !important; text-align: left; }
+        
+        /* Banner impresso simplificado */
+        .print-banner { background: white !important; border: 2px solid #000 !important; color: black !important; padding: 10px !important; margin-bottom: 20px !important; display: block !important; }
+        .print-banner span, .print-banner h2, .print-banner p { color: black !important; }
+        
+        /* Cores Semânticas no Papel */
+        .text-emerald-600, .text-emerald-400, .text-emerald-700 { color: #059669 !important; font-weight: bold; }
+        .text-red-600, .text-red-400, .text-red-700 { color: #dc2626 !important; font-weight: bold; }
+        .bg-bipec-navy { background-color: #e2e8f0 !important; color: black !important; }
+        .text-white { color: black !important; }
+        .bg-emerald-600 { background-color: #10b981 !important; color: white !important; }
+        
+        /* Selo de Destaque */
+        .selo-melhor { display: inline-block !important; margin-top: 2px; font-size: 8px; background: black; color: white; padding: 2px; border-radius: 2px; }
+    }
+    .print-header { display: none; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-full flex flex-col antialiased">
+
+<!-- HEADER BIPEC -->
+<header class="bg-bipec-navy text-white shadow-lg sticky top-0 z-50 no-print">
+    <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-col xl:flex-row justify-between items-center gap-3">
+        <div class="flex items-center gap-3 w-full xl:w-auto">
+            <div class="bg-bipec-navy p-2 rounded-xl border border-slate-700 shadow-inner flex items-center justify-center w-12 h-12">
+                <i class="fa-solid fa-cow text-2xl text-bipec-red relative" style="transform: scaleY(1.1);"></i>
+            </div>
+            <div>
+                <h1 class="text-lg sm:text-xl font-extrabold tracking-tight flex items-center gap-2">
+                    BIPEC <span class="text-bipec-red">Simulador</span>
+                </h1>
+                <p class="text-[10px] sm:text-xs text-slate-300 font-medium tracking-wide uppercase">Gestão de Dados • Viabilidade Econômica</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 w-full xl:w-auto justify-end flex-wrap">
+            <button onclick="salvarBackupJSON()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1.5" title="Baixar arquivo de backup">
+                <i class="fa-solid fa-download"></i> Backup
+            </button>
+            <label class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1.5 cursor-pointer" title="Importar arquivo de simulação">
+                <i class="fa-solid fa-upload"></i> Importar
+                <input type="file" id="import_simulacao" accept=".json" class="hidden" onchange="importarSimulacaoJSON(event)">
+            </label>
+            <button onclick="resetToDefault()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs font-semibold transition border border-slate-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate-right"></i> Padrão
+            </button>
+            <button onclick="gerarWhatsApp()" class="bg-[#25D366] hover:bg-[#128C7E] text-white px-3 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1.5">
+                <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp
+            </button>
+            <button onclick="imprimirRelatorio()" class="bg-white hover:bg-slate-50 text-bipec-navy px-3 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1.5">
+                <i class="fa-solid fa-print"></i> PDF
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- CABEÇALHO EXCLUSIVO PARA PDF -->
+<div class="print-header max-w-7xl w-full mx-auto px-6 py-4 border-b-2 border-black mb-4 items-center justify-between">
+    <div class="flex items-center gap-3">
+        <i class="fa-solid fa-cow text-4xl text-black"></i>
+        <div>
+            <h1 class="text-2xl font-extrabold text-black tracking-tight">BIPEC SIMULADOR</h1>
+            <p class="text-xs text-black font-bold uppercase" id="print_titulo">Simulação Técnica</p>
+        </div>
+    </div>
+    <div class="text-right text-xs text-black">
+        <p><strong>Consultor:</strong> <span id="print_consultor"></span></p>
+        <p><strong>Produtor:</strong> <span id="print_produtor"></span></p>
+        <p><strong>Data:</strong> <span id="print_data"></span></p>
+    </div>
+</div>
+
+<main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 space-y-5">
+
+    <!-- Identificação -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 no-print">
+        <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+            <h3 class="font-bold text-bipec-navy text-sm sm:text-base flex items-center gap-2">
+                <i class="fa-solid fa-id-card text-bipec-red"></i> Identificação e Título
+            </h3>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+            <div class="lg:col-span-2">
+                <label class="block text-xs font-bold text-bipec-navy mb-1">Título da Comparação</label>
+                <input type="text" id="meta_titulo" value="Avaliação de Estratégias Nutricionais" oninput="salvarEstadoDebounced()" class="w-full bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-bipec-navy focus:outline-none text-bipec-navy">
+            </div>
+            <div class="lg:col-span-1">
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Consultor</label>
+                <input type="text" id="meta_consultor" value="Guilherme Alves do Val" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-bipec-navy focus:outline-none">
+            </div>
+            <div class="lg:col-span-1">
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Produtor</label>
+                <input type="text" id="meta_produtor" value="João da Silva" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-bipec-navy focus:outline-none">
+            </div>
+            <div class="lg:col-span-1">
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Fazenda</label>
+                <input type="text" id="meta_fazenda" value="Fazenda Esperança" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-bipec-navy focus:outline-none">
+            </div>
+            <div class="lg:col-span-1">
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Município / UF</label>
+                <input type="text" id="meta_municipio" value="Cuiabá - MT" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-bipec-navy focus:outline-none">
+            </div>
+            <div class="lg:col-span-1 flex gap-2">
+                <div class="w-1/2">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Data</label>
+                    <input type="date" id="meta_data" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-xs font-medium focus:ring-2 focus:ring-bipec-navy focus:outline-none">
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-xs font-bold text-bipec-navy mb-1">Cabeças</label>
+                    <input type="text" inputmode="numeric" id="global_qtd" value="100" oninput="updateValueGlobal('qtd', this.value)" class="w-full bg-blue-50 border border-blue-300 rounded-lg px-2 py-2 text-sm font-bold text-bipec-navy focus:ring-2 focus:ring-bipec-navy focus:outline-none text-center">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MÓDULO DE PRODUTOS -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden no-print">
+        <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none" onclick="toggleProdutos()">
+            <h3 class="font-bold text-bipec-navy text-sm flex items-center gap-2">
+                <i class="fa-solid fa-box text-bipec-red"></i> Base de Produtos (Catálogo Técnico)
+            </h3>
+            <i id="icon-toggle-prod" class="fa-solid fa-chevron-down text-slate-400 transition-transform"></i>
+        </div>
+        
+        <div id="painel-produtos" class="p-4 hidden">
+            <div class="grid grid-cols-1 sm:grid-cols-6 gap-3 mb-4 items-end bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <input type="hidden" id="prod_id_edit" value="">
+                <div class="sm:col-span-2">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase">Nome do Produto</label>
+                    <input type="text" id="prod_nome" placeholder="Ex: Sal Mineral" class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-bipec-navy outline-none">
+                </div>
+                <div class="sm:col-span-1">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase">Empresa</label>
+                    <input type="text" id="prod_empresa" placeholder="Ex: Agrosal" class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-bipec-navy outline-none">
+                </div>
+                <div class="sm:col-span-1">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase" title="Peso da Embalagem em kg">Peso Emb. (kg)</label>
+                    <input type="text" inputmode="decimal" id="prod_peso_emb" placeholder="30" class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-bipec-navy outline-none">
+                </div>
+                <div class="sm:col-span-1">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase" title="Gramas por 100kg de Peso Vivo">Consumo (g/100kg)</label>
+                    <input type="text" inputmode="decimal" id="prod_consumo" placeholder="50" class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-bipec-navy outline-none">
+                </div>
+                <div class="sm:col-span-1 flex gap-1">
+                    <button onclick="salvarProduto()" id="btn-salvar-prod" class="w-full bg-bipec-navy hover:bg-slate-800 text-white font-bold py-1.5 rounded text-xs transition flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-plus"></i> Incluir
+                    </button>
+                    <button onclick="cancelarEdicaoProduto()" id="btn-cancelar-prod" class="hidden w-full bg-slate-400 hover:bg-slate-500 text-white font-bold py-1.5 rounded text-xs transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-slate-600">Produtos Cadastrados: <span id="count-produtos" class="text-bipec-navy">0</span></span>
+            </div>
+            
+            <div class="overflow-x-auto max-h-48 overflow-y-auto border border-slate-200 rounded">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-100 sticky top-0 text-slate-600">
+                        <tr>
+                            <th class="p-2">Produto</th>
+                            <th class="p-2">Empresa</th>
+                            <th class="p-2 text-center">Emb. (kg)</th>
+                            <th class="p-2 text-center">Consumo (g/100kg)</th>
+                            <th class="p-2 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-produtos" class="divide-y divide-slate-100">
+                        <!-- Injetado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Banner Executivo -->
+    <section id="executive-summary" class="bg-gradient-to-r from-bipec-navy via-slate-900 to-slate-900 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden print-banner">
+        <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
+                    <i class="fa-solid fa-award"></i> Análise e Recomendação
+                </div>
+                <h2 id="best-title" class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Carregando...</h2>
+                <p id="best-desc" class="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl">Avaliando margens...</p>
+            </div>
+            <div id="best-box" class="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/15 text-center min-w-[220px]">
+                <span id="best-label" class="text-[10px] text-slate-300 font-semibold uppercase block">MARGEM LÍQUIDA (LOTE)</span>
+                <span id="best-margin-val" class="text-2xl sm:text-3xl font-black text-emerald-400">R$ 0,00</span>
+                <span id="best-margin-pct" class="text-[11px] text-slate-200 block mt-0.5 font-medium">Mensal: 0,00%</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Seletor de Critério e Gráfico -->
+    <div class="flex flex-col md:flex-row gap-4 no-print">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex-none w-full md:w-72 flex flex-col justify-center">
+            <label class="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">Destaque da Avaliação:</label>
+            <select id="criterio_avaliacao" onchange="mudarCriterio(this.value)" class="w-full bg-blue-50 border border-blue-300 rounded-lg px-3 py-2 text-sm font-bold text-bipec-navy focus:ring-2 focus:ring-bipec-navy outline-none cursor-pointer">
+                <option value="margem">Maior Margem Líquida (R$)</option>
+                <option value="margem_mensal">Melhor Retorno Mensal (%)</option>
+                <option value="peso_saida">Maior Peso Final (kg)</option>
+                <option value="gmd">Maior GMD (kg/dia)</option>
+                <option value="custo_arroba">Menor Custo por @</option>
+            </select>
+            <p class="text-[10px] text-slate-500 mt-2 leading-tight">O painel de análise e a tabela destacam automaticamente a melhor opção baseada no critério escolhido.</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex-grow chart-container">
+            <canvas id="chartCenarios" height="80"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabela de Cenários -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 border-b border-slate-100 pb-3 no-print">
+            <div>
+                <h3 class="font-bold text-bipec-navy text-base flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-bipec-red"></i> Avaliação de Cenários
+                </h3>
+            </div>
+            <button onclick="adicionarColuna()" class="bg-bipec-navy hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Adicionar Coluna
+            </button>
+        </div>
+        <div class="overflow-x-auto pb-4">
+            <table id="tabela-cenarios" class="w-full text-left border-collapse text-xs sm:text-sm min-w-[1000px]">
+                <thead>
+                    <tr id="headers-row" class="bg-slate-100 text-slate-700 uppercase tracking-wider text-xs font-bold border-b border-slate-200">
+                        <th class="py-3 px-3 w-[18%]">Indicador / Premissa</th>
+                    </tr>
+                </thead>
+                <tbody id="body-rows" class="divide-y divide-slate-100 text-slate-700 font-medium"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<footer class="bg-bipec-navy text-slate-400 py-5 mt-auto border-t border-slate-800 no-print">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs space-y-1">
+        <p class="font-bold text-white tracking-wide">BIPEC GESTÃO DE DADOS</p>
+        <p>Ferramenta de Suporte à Decisão Técnica</p>
+    </div>
+</footer>
+
+<div id="save-status" class="fixed bottom-4 right-4 bg-bipec-navy text-white px-3 py-2 rounded-lg shadow-lg text-xs font-bold opacity-0 transition-opacity duration-300 pointer-events-none no-print z-50">
+    <i class="fa-solid fa-check text-emerald-400 mr-1"></i> Salvo
+</div>
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'bipec_sim_v5';
+let chartInstance = null;
+let criterioAvaliacao = 'margem';
+
+const PRODUTOS_PADRAO = [
+    { id: 'p1', nome: 'Sal Mineral', empresa: 'Agrosal', peso_emb: 30, consumo: 25 },
+    { id: 'p2', nome: 'Sal Mineral Aditivado', empresa: 'Agrosal', peso_emb: 30, consumo: 35 },
+    { id: 'p3', nome: 'Sal Mineral Adensado', empresa: 'Agrosal', peso_emb: 30, consumo: 50 },
+    { id: 'p4', nome: 'Sal Proteinado Águas 1G', empresa: 'Agrosal', peso_emb: 30, consumo: 100 },
+    { id: 'p5', nome: 'Sal Proteinado Águas 2G', empresa: 'Agrosal', peso_emb: 30, consumo: 200 },
+    { id: 'p6', nome: 'Sal Proteinado Águas 3G', empresa: 'Agrosal', peso_emb: 30, consumo: 300 }
+];
+
+const CENARIOS_PADRAO = () => ([
+    { 
+        id: 1, nome: 'Sal Mineral', empresa: 'Agrosal', peso_emb: 30, consumo: 25,
+        custo_sacaria: 175.00, gmd: 0.50, peso_entrada: 240, tempo: 100, 
+        preco_compra_arroba: 500.00, preco_venda_arroba: 430.00, 
+        rend_ini: 50, rend_fim: 50, frete: 15.00, 
+        operacional_dia: 0.35, pasto_mes: 50.00 
+    },
+    { 
+        id: 2, nome: 'Sal Proteinado Águas 3G', empresa: 'Agrosal', peso_emb: 30, consumo: 300,
+        custo_sacaria: 100.00, gmd: 0.85, peso_entrada: 240, tempo: 100, 
+        preco_compra_arroba: 500.00, preco_venda_arroba: 430.00, 
+        rend_ini: 50, rend_fim: 50, frete: 15.00, 
+        operacional_dia: 0.35, pasto_mes: 50.00 
+    }
+]);
+
+let produtos = [...PRODUTOS_PADRAO];
+let cenarios = CENARIOS_PADRAO();
+let nextCenarioId = 3;
+let globalQtd = 100;
+
+/* ============================================================
+   HELPERS E SEGURANÇA (XSS)
+   ============================================================ */
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
+}
+
+function num(v) {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    const s = String(v == null ? '' : v).trim().replace(',', '.');
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function formatBRL(val) {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return 'R$ —';
+    return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatPct(val) {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return '0,00%';
+    return n.toFixed(2).replace('.', ',') + '%';
+}
+
+function fmtInput(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '';
+    if (Number.isInteger(n)) return String(n);
+    return n.toFixed(2).replace('.', ',');
+}
+
+/* ============================================================
+   CÁLCULOS
+   ============================================================ */
+function calcularCenario(c) {
+    const custo_sacaria = num(c.custo_sacaria);
+    const peso_emb = num(c.peso_emb) || 30;
+    const consumo_g = num(c.consumo) || 50;
+    const gmd = num(c.gmd);
+    const peso_entrada = num(c.peso_entrada);
+    const tempo = num(c.tempo) || 1;
+    const preco_compra_arroba = num(c.preco_compra_arroba);
+    const preco_venda_arroba = num(c.preco_venda_arroba);
+    const rend_ini = num(c.rend_ini) || 50;
+    const rend_fim = num(c.rend_fim) || 50;
+    const frete = num(c.frete);
+    const operacional_dia = num(c.operacional_dia);
+    const pasto_mes = num(c.pasto_mes);
+
+    const peso_saida = peso_entrada + (gmd * tempo);
+    const peso_medio = (peso_entrada + peso_saida) / 2;
+    const consumo_diario_kg = (consumo_g / 1000) * (peso_medio / 100);
+    
+    const custo_kg_racao = custo_sacaria / peso_emb;
+    const custo_racao_dia = consumo_diario_kg * custo_kg_racao;
+    const custo_racao_total = custo_racao_dia * tempo;
+
+    const arrobas_entrada = (peso_entrada * (rend_ini / 100)) / 15;
+    const valor_bezerro = arrobas_entrada * preco_compra_arroba;
+
+    const arrobas_saida = (peso_saida * (rend_fim / 100)) / 15;
+    const receita = arrobas_saida * preco_venda_arroba;
+
+    const custo_operacional_total = operacional_dia * tempo;
+    const custo_pasto_total = pasto_mes * (tempo / 30);
+
+    const custo_total = custo_racao_total + valor_bezerro + frete + custo_operacional_total + custo_pasto_total;
+    const margem = receita - custo_total;
+    const margem_mensal = (custo_total > 0 && tempo > 0) ? (margem / custo_total) * (30 / tempo) * 100 : 0;
+    
+    const arrobas_ganhas = arrobas_saida - arrobas_entrada;
+    const custo_arroba_prod = arrobas_ganhas > 0 ? (custo_total - valor_bezerro) / arrobas_ganhas : null;
+    
+    // Ponto de Equilíbrio (Preço Mínimo de Venda)
+    const preco_minimo_venda = arrobas_saida > 0 ? custo_total / arrobas_saida : 0;
+
+    return { 
+        ...c,
+        peso_saida, peso_medio, consumo_diario_kg, custo_kg_racao, custo_racao_dia, custo_racao_total,
+        valor_bezerro, receita, custo_operacional_total, custo_pasto_total,
+        custo_total, margem, margem_mensal, custo_arroba_prod, arrobas_ganhas, preco_minimo_venda
+    };
+}
+
+/* ============================================================
+   GERENCIAMENTO DE PRODUTOS (CRUD)
+   ============================================================ */
+function toggleProdutos() {
+    const panel = document.getElementById('painel-produtos');
+    const icon = document.getElementById('icon-toggle-prod');
+    panel.classList.toggle('hidden');
+    icon.style.transform = panel.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function renderProdutosLista() {
+    const tbody = document.getElementById('lista-produtos');
+    document.getElementById('count-produtos').innerText = produtos.length;
+    
+    if (produtos.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-slate-400 italic">Nenhum produto cadastrado.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = produtos.map(p => `
+        <tr class="hover:bg-slate-50">
+            <td class="p-2 font-semibold text-bipec-navy">${esc(p.nome)}</td>
+            <td class="p-2 text-slate-600">${esc(p.empresa || '—')}</td>
+            <td class="p-2 text-center">${p.peso_emb} kg</td>
+            <td class="p-2 text-center">${p.consumo} g</td>
+            <td class="p-2 text-center flex justify-center gap-2">
+                <button onclick="editarProduto('${p.id}')" class="text-blue-500 hover:text-blue-700 p-1" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                <button onclick="removerProduto('${p.id}')" class="text-red-500 hover:text-red-700 p-1" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function salvarProduto() {
+    const idEdit = document.getElementById('prod_id_edit').value;
+    const nome = document.getElementById('prod_nome').value.trim();
+    const empresa = document.getElementById('prod_empresa').value.trim();
+    const peso_emb = num(document.getElementById('prod_peso_emb').value) || 30;
+    const consumo = num(document.getElementById('prod_consumo').value) || 50;
+
+    if (!nome) { alert('Informe o nome do produto.'); return; }
+
+    if (idEdit) {
+        const idx = produtos.findIndex(p => p.id === idEdit);
+        if (idx > -1) produtos[idx] = { id: idEdit, nome, empresa, peso_emb, consumo };
+    } else {
+        produtos.push({ id: 'prod_' + Date.now(), nome, empresa, peso_emb, consumo });
+    }
+
+    cancelarEdicaoProduto();
+    salvarEstado();
+    renderProdutosLista();
+    renderApp();
+}
+
+function editarProduto(id) {
+    const p = produtos.find(x => x.id === id);
+    if (!p) return;
+
+    document.getElementById('prod_id_edit').value = p.id;
+    document.getElementById('prod_nome').value = p.nome;
+    document.getElementById('prod_empresa').value = p.empresa || '';
+    document.getElementById('prod_peso_emb').value = p.peso_emb;
+    document.getElementById('prod_consumo').value = p.consumo;
+
+    document.getElementById('btn-salvar-prod').innerHTML = '<i class="fa-solid fa-check"></i> Atualizar';
+    document.getElementById('btn-cancelar-prod').classList.remove('hidden');
+    document.getElementById('painel-produtos').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicaoProduto() {
+    document.getElementById('prod_id_edit').value = '';
+    document.getElementById('prod_nome').value = '';
+    document.getElementById('prod_empresa').value = '';
+    document.getElementById('prod_peso_emb').value = '';
+    document.getElementById('prod_consumo').value = '';
+
+    document.getElementById('btn-salvar-prod').innerHTML = '<i class="fa-solid fa-plus"></i> Incluir';
+    document.getElementById('btn-cancelar-prod').classList.add('hidden');
+}
+
+function removerProduto(id) {
+    if (!confirm('Excluir este produto da base?')) return;
+    produtos = produtos.filter(p => p.id !== id);
+    salvarEstado();
+    renderProdutosLista();
+    renderApp();
+}
+
+/* ============================================================
+   PERSISTÊNCIA E BACKUP
+   ============================================================ */
+let _saveTimer = null, _toastTimer = null;
+
+function obterEstadoAtual() {
+    const metas = {};
+    ['titulo', 'consultor','produtor','fazenda','municipio','data'].forEach(k => {
+        metas[k] = document.getElementById('meta_' + k)?.value || '';
+    });
+    return { produtos, cenarios, nextCenarioId, globalQtd, metas, criterioAvaliacao };
+}
+
+function salvarEstado(silencioso = false) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(obterEstadoAtual()));
+        if (!silencioso) {
+            const toast = document.getElementById('save-status');
+            if (toast) {
+                toast.style.opacity = '1';
+                clearTimeout(_toastTimer);
+                _toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 1500);
+            }
+        }
+    } catch (e) { /* ignore */ }
+}
+
+function salvarEstadoDebounced() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => salvarEstado(true), 300);
+}
+
+function carregarEstado() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        
+        if (data.produtos) produtos = data.produtos;
+        if (data.cenarios) cenarios = data.cenarios;
+        if (data.nextCenarioId) nextCenarioId = data.nextCenarioId;
+        if (data.globalQtd) {
+            globalQtd = data.globalQtd;
+            document.getElementById('global_qtd').value = globalQtd;
+        }
+        if (data.criterioAvaliacao) {
+            criterioAvaliacao = data.criterioAvaliacao;
+            document.getElementById('criterio_avaliacao').value = criterioAvaliacao;
+        }
+        if (data.metas) {
+            Object.entries(data.metas).forEach(([k, v]) => {
+                const el = document.getElementById('meta_' + k);
+                if (el && v) el.value = v;
+            });
+        }
+        return true;
+    } catch (e) { return false; }
+}
+
+function salvarBackupJSON() {
+    const data = obterEstadoAtual();
+    const produtor = (data.metas.produtor || 'Produtor').replace(/\s+/g, '_');
+    const titulo = (data.metas.titulo || 'Simulacao').replace(/\s+/g, '_');
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+    
+    const a = document.createElement('a');
+    a.href = dataStr;
+    a.download = `BIPEC_${produtor}_${titulo}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+function importarSimulacaoJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data.cenarios || !data.produtos) throw new Error("Arquivo inválido.");
+            
+            produtos = data.produtos;
+            cenarios = data.cenarios;
+            nextCenarioId = data.nextCenarioId || (Math.max(...cenarios.map(c=>c.id)) + 1);
+            globalQtd = data.globalQtd || 100;
+            document.getElementById('global_qtd').value = globalQtd;
+            
+            if (data.criterioAvaliacao) {
+                criterioAvaliacao = data.criterioAvaliacao;
+                document.getElementById('criterio_avaliacao').value = criterioAvaliacao;
+            }
+
+            if (data.metas) {
+                Object.entries(data.metas).forEach(([k, v]) => {
+                    const el = document.getElementById('meta_' + k);
+                    if (el && v) el.value = v;
+                });
+            }
+            
+            salvarEstado();
+            renderProdutosLista();
+            renderApp();
+            alert('Simulação importada com sucesso!');
+        } catch (err) {
+            alert('Erro ao importar. Certifique-se de que é um arquivo de backup válido da BIPEC.');
+        }
+        event.target.value = '';
+    };
+    reader.readAsText(file);
+}
+
+/* ============================================================
+   AÇÕES DE CENÁRIOS
+   ============================================================ */
+function updateValueGlobal(campo, valor) {
+    if (campo === 'qtd') {
+        globalQtd = num(valor) || 1;
+        salvarEstadoDebounced();
+        renderCalculated();
+    }
+}
+
+function mudarCriterio(novoCriterio) {
+    criterioAvaliacao = novoCriterio;
+    salvarEstadoDebounced();
+    renderCalculated();
+}
+
+function aplicarProdutoCenario(idCenario, selectEl) {
+    const c = cenarios.find(x => x.id === idCenario);
+    if (!c) return;
+    const prod = produtos.find(p => p.id === selectEl.value);
+    if (!prod) return;
+
+    c.nome = prod.nome;
+    c.empresa = prod.empresa;
+    c.peso_emb = prod.peso_emb;
+    c.consumo = prod.consumo;
+
+    salvarEstado();
+    renderApp();
+}
+
+function adicionarColuna() {
+    if (cenarios.length >= 6) { alert('Limite de 6 cenários.'); return; }
+    const novoId = nextCenarioId++;
+    cenarios.push({
+        id: novoId, nome: `Cenário ${novoId}`, empresa: '', peso_emb: 30, consumo: 50,
+        custo_sacaria: 70.00, gmd: 1.00, peso_entrada: 240, tempo: 40,
+        preco_compra_arroba: 250.00, preco_venda_arroba: 320.00, 
+        rend_ini: 50, rend_fim: 52, frete: 30.00, 
+        operacional_dia: 0.50, pasto_mes: 60.00
+    });
+    salvarEstado();
+    renderApp();
+}
+
+function duplicarColuna(id) {
+    if (cenarios.length >= 6) { alert('Limite de 6 cenários atingido.'); return; }
+    const orig = cenarios.find(c => c.id === id);
+    if (!orig) return;
+    const novoId = nextCenarioId++;
+    cenarios.push({ ...orig, id: novoId, nome: orig.nome + ' (Cópia)' });
+    salvarEstado();
+    renderApp();
+}
+
+function removerColuna(id) {
+    if (cenarios.length <= 1) { alert('Mínimo de 1 cenário.'); return; }
+    const alvo = cenarios.find(c => c.id === id);
+    if (alvo && !confirm(`Remover o cenário "${alvo.nome}"?`)) return;
+    cenarios = cenarios.filter(c => c.id !== id);
+    salvarEstado();
+    renderApp();
+}
+
+function updateValue(id, field, value, isFloat = true) {
+    const c = cenarios.find(item => item.id === id);
+    if (!c) return;
+    c[field] = isFloat ? num(value) : value;
+    salvarEstadoDebounced();
+    renderCalculated();
+}
+
+function formatOnBlur(id, field, el) {
+    const c = cenarios.find(x => x.id === id);
+    if (!c) return;
+    el.value = fmtInput(c[field]);
+}
+
+/* ============================================================
+   RENDERIZAÇÃO
+   ============================================================ */
+function renderApp() {
+    const headersRow = document.getElementById('headers-row');
+    const bodyRows = document.getElementById('body-rows');
+
+    let htmlHeaders = `<th class="py-3 px-3 w-[18%] border-r border-slate-200">Indicador / Premissa</th>`;
+    cenarios.forEach(c => {
+        const matchProd = produtos.find(p => p.nome.toLowerCase() === String(c.nome).toLowerCase());
+        const matchId = matchProd ? matchProd.id : "";
+
+        const optionsProdutos = produtos.map(p => 
+            `<option value="${p.id}" ${p.id === matchId ? 'selected' : ''}>${esc(p.nome)}</option>`
+        ).join('');
+
+        htmlHeaders += `
+            <th class="py-3 px-3 text-center border-x border-slate-200 bg-slate-50 relative min-w-[160px]">
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between gap-1 no-print">
+                        <select onchange="aplicarProdutoCenario(${c.id}, this)" aria-label="Catálogo Técnico"
+                                class="text-[10px] bg-white border border-slate-300 rounded px-1 py-0.5 text-slate-700 font-normal max-w-[110px] w-full truncate">
+                            <option value="">Aplicar...</option>
+                            ${optionsProdutos}
+                        </select>
+                        <div class="flex items-center gap-0.5 shrink-0">
+                            <button onclick="duplicarColuna(${c.id})" title="Duplicar" class="text-slate-400 hover:text-bipec-navy p-1"><i class="fa-solid fa-copy"></i></button>
+                            <button onclick="removerColuna(${c.id})" title="Remover" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <input type="text" value="${esc(c.nome)}" data-id="${c.id}" data-field="nome"
+                           oninput="updateValue(${c.id}, 'nome', this.value, false)"
+                           class="no-print text-center font-extrabold text-sm bg-white border border-slate-300 rounded px-2 py-1 text-bipec-navy shadow-sm focus:ring-1 focus:ring-bipec-navy outline-none w-full">
+                    <span class="hidden print:block text-center font-extrabold text-sm text-black">${esc(c.nome)}</span>
+                    <span class="text-[10px] text-slate-500 uppercase block text-center print:text-black font-semibold tracking-wider">${esc(c.empresa || 'Sem Empresa')}</span>
+                </div>
+            </th>`;
+    });
+    headersRow.innerHTML = htmlHeaders;
+
+    const resultados = cenarios.map(calcularCenario);
+    let html = '';
+
+    const inputCls = (inv) => inv
+        ? 'w-full max-w-[90px] mx-auto text-center border border-red-500 bg-red-50 text-red-900 rounded px-2 py-1 text-xs font-bold shadow-sm outline-none'
+        : 'w-full max-w-[90px] mx-auto text-center bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-bipec-navy shadow-sm focus:ring-2 focus:ring-bipec-navy outline-none';
+
+    const rowInput = (label, field, invalidFn, step='any') => {
+        let r = `<tr><td class="py-2.5 px-3 font-semibold text-slate-900 border-r border-slate-200">${label}</td>`;
+        resultados.forEach(c => {
+            const inv = invalidFn ? invalidFn(c) : false;
+            r += `<td class="py-2.5 px-3 text-center border-r border-slate-100 relative group">
+                <input type="text" inputmode="decimal" value="${fmtInput(c[field])}"
+                       data-id="${c.id}" data-field="${field}"
+                       oninput="updateValue(${c.id}, '${field}', this.value)"
+                       onblur="formatOnBlur(${c.id}, '${field}', this)"
+                       class="no-print ${inputCls(inv)}">
+                <span class="hidden print:inline font-bold text-black text-[11px]">${fmtInput(c[field])}</span>
+            </td>`;
+        });
+        return r + `</tr>`;
+    };
+
+    const rowReadOnly = (label, valFn) => {
+        let r = `<tr><td class="py-2.5 px-3 font-semibold text-slate-900 border-r border-slate-200">${label}</td>`;
+        resultados.forEach(c => {
+            r += `<td class="py-2.5 px-3 text-center border-r border-slate-100 bg-slate-50/50">
+                <span class="block w-full max-w-[90px] mx-auto bg-slate-100 border border-slate-200 rounded px-2 py-1 text-xs font-bold text-slate-500 cursor-not-allowed print:bg-transparent print:border-none print:text-black">
+                    ${valFn(c)}
+                </span>
+            </td>`;
+        });
+        return r + `</tr>`;
+    };
+
+    const rowCalc = (label, key, extraClass, formatFn) => {
+        let r = `<tr class="${extraClass}"><td class="py-2.5 px-3 ${extraClass.includes('font-bold') ? '' : 'text-slate-600 text-xs'} border-r border-slate-200">${label}</td>`;
+        resultados.forEach(c => {
+            r += `<td class="py-2.5 px-3 text-center font-semibold border-r border-slate-100"
+                        data-calc="${key}" data-calc-id="${c.id}">${formatFn(c[key])}</td>`;
+        });
+        return r + `</tr>`;
+    };
+
+    // GRUPO 1: DADOS DO PRODUTO (READ-ONLY)
+    html += `<tr class="bg-slate-100/50"><td colspan="${cenarios.length + 1}" class="py-1.5 px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 print:bg-slate-200 print:text-black">Características Técnicas (Puxadas do Catálogo)</td></tr>`;
+    html += rowReadOnly('Peso da Embalagem (kg)', c => `${c.peso_emb} kg`);
+    html += rowReadOnly('Consumo (g/100kg PV)', c => `${c.consumo} g`);
+
+    // GRUPO 2: PREMISSAS (INPUTS)
+    html += `<tr class="bg-slate-100/50"><td colspan="${cenarios.length + 1}" class="py-1.5 px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 print:bg-slate-200 print:text-black">Premissas de Custo e Zootecnia</td></tr>`;
+    html += rowInput('Custo da Sacaria (R$)', 'custo_sacaria');
+    html += rowInput('GMD (kg/dia)', 'gmd', c => num(c.gmd) <= 0);
+    html += rowInput('Peso de Entrada (kg)', 'peso_entrada');
+    html += rowInput('Tempo (dias)', 'tempo', c => num(c.tempo) <= 0);
+    html += rowInput('Preço Compra (R$/@)', 'preco_compra_arroba');
+    html += rowInput('Preço Venda (R$/@)', 'preco_venda_arroba');
+    html += rowInput('Rendimento Inicial (%)', 'rend_ini', c => num(c.rend_ini) <= 0 || num(c.rend_ini) > 100);
+    html += rowInput('Rendimento Final (%)', 'rend_fim', c => num(c.rend_fim) <= 0 || num(c.rend_fim) > 100);
+    html += rowInput('Frete (R$/cab)', 'frete');
+    html += rowInput('Operacional (R$/cab/dia)', 'operacional_dia');
+    html += rowInput('Pasto/Instalação (R$/cab/mês)', 'pasto_mes');
+
+    // GRUPO 3: CÁLCULOS ZOOTÉCNICOS
+    html += `<tr class="bg-slate-100/50"><td colspan="${cenarios.length + 1}" class="py-1.5 px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 print:bg-slate-200 print:text-black">Projeção Zootécnica</td></tr>`;
+    html += rowCalc('Peso de Saída (kg)', 'peso_saida', 'bg-white', c => fmtInput(c));
+    html += rowCalc('Peso Médio (kg)', 'peso_medio', 'bg-white', c => fmtInput(c));
+    html += rowCalc('Consumo Diário (kg)', 'consumo_diario_kg', 'bg-white', c => c.toFixed(3).replace('.', ','));
+    
+    // GRUPO 4: CUSTOS E RECEITAS
+    html += `<tr class="bg-slate-100/50"><td colspan="${cenarios.length + 1}" class="py-1.5 px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 print:bg-slate-200 print:text-black">Custos e Receitas</td></tr>`;
+    html += rowCalc('Custo kg Ração (R$)', 'custo_kg_racao', 'bg-white', formatBRL);
+    html += rowCalc('Custo Alimentar (R$)', 'custo_racao_total', 'bg-white', formatBRL);
+    html += rowCalc('Valor Bezerro (R$)', 'valor_bezerro', 'bg-white', formatBRL);
+    html += rowCalc('Custo Total (R$)', 'custo_total', 'bg-slate-50 font-bold text-bipec-navy', formatBRL);
+    html += rowCalc('Receita Bruta (R$)', 'receita', 'bg-slate-50 font-bold text-emerald-600', formatBRL);
+
+    // GRUPO 5: RESULTADOS E MARGENS
+    html += rowCalc('Custo @ Produzida (R$)', 'custo_arroba_prod', 'bg-white font-semibold text-slate-800', c => c === null ? '—' : formatBRL(c));
+    html += rowCalc('Ponto de Equilíbrio (R$/@)', 'preco_minimo_venda', 'bg-white font-semibold text-slate-800', formatBRL);
+    
+    html += `<tr class="font-extrabold text-sm bg-slate-50">
+        <td class="py-3 px-3 text-bipec-navy border-r border-slate-200">Margem Líquida / Cabeça (R$)</td>`;
+    resultados.forEach(c => {
+        html += `<td class="py-3 px-3 text-center border-r border-slate-100"
+                     data-calc="margem_cab" data-calc-id="${c.id}">${formatBRL(c.margem)}</td>`;
+    });
+    html += `</tr>`;
+
+    html += `<tr class="bg-bipec-navy text-white font-black text-sm">
+        <td class="py-3 px-3 border-r border-slate-700">Margem Líquida / Lote (R$)</td>`;
+    resultados.forEach(c => {
+        html += `<td class="py-3 px-3 text-center border-r border-slate-700"
+                     data-calc="margem_lote" data-calc-id="${c.id}">R$ 0,00</td>`;
+    });
+    html += `</tr>`;
+
+    html += `<tr class="font-black text-sm bg-slate-100">
+        <td class="py-3 px-3 text-bipec-navy border-r border-slate-200">Margem Mensal (%)</td>`;
+    resultados.forEach(c => {
+        html += `<td class="py-3 px-3 text-center border-r border-slate-200"
+                     data-calc="margem_mensal" data-calc-id="${c.id}">${formatPct(c.margem_mensal)}</td>`;
+    });
+    html += `</tr>`;
+
+    bodyRows.innerHTML = html;
+    renderCalculated();
+}
+
+function renderCalculated() {
+    const resultados = cenarios.map(calcularCenario);
+    
+    // Lógica para encontrar o melhor com base no critério
+    let melhor = resultados[0];
+    resultados.forEach(r => {
+        let valAtual = r[criterioAvaliacao];
+        let valMelhor = melhor[criterioAvaliacao];
+        
+        if (valAtual === null) valAtual = Infinity;
+        if (valMelhor === null) valMelhor = Infinity;
+
+        if (criterioAvaliacao === 'custo_arroba') {
+            if (valAtual < valMelhor) melhor = r;
+        } else {
+            if (valAtual > valMelhor) melhor = r;
+        }
+    });
+
+    // Atualiza Banner Principal
+    const titleEl = document.getElementById('best-title');
+    const valEl = document.getElementById('best-margin-val');
+    const lblEl = document.getElementById('best-label');
+    const boxEl = document.getElementById('best-box');
+    const pctEl = document.getElementById('best-margin-pct');
+    const descEl = document.getElementById('best-desc');
+
+    let labelTexto = '';
+    let valorExibicao = '';
+    let descTexto = '';
+    
+    switch(criterioAvaliacao) {
+        case 'margem':
+            labelTexto = 'MARGEM LÍQUIDA (LOTE)';
+            valorExibicao = formatBRL(melhor.margem * globalQtd);
+            descTexto = `Maior rentabilidade: ${formatBRL(melhor.margem)}/cab (Lote: ${formatBRL(melhor.margem * globalQtd)}) em ${melhor.tempo} dias.`;
+            pctEl.textContent = `Mensal: ${formatPct(melhor.margem_mensal)}`;
+            break;
+        case 'margem_mensal':
+            labelTexto = 'RETORNO MENSAL';
+            valorExibicao = formatPct(melhor.margem_mensal);
+            descTexto = `Melhor retorno sobre o capital investido em ${melhor.tempo} dias.`;
+            pctEl.textContent = `Margem/cab: ${formatBRL(melhor.margem)}`;
+            break;
+        case 'peso_saida':
+            labelTexto = 'PESO FINAL (CAB)';
+            valorExibicao = `${fmtInput(melhor.peso_saida)} kg`;
+            descTexto = `Animal mais pesado no final do período (${melhor.tempo} dias).`;
+            pctEl.textContent = `GMD: ${melhor.gmd} kg/dia`;
+            break;
+        case 'gmd':
+            labelTexto = 'GANHO MÉDIO DIÁRIO';
+            valorExibicao = `${fmtInput(melhor.gmd)} kg/dia`;
+            descTexto = `Maior velocidade de ganho de peso no período de ${melhor.tempo} dias.`;
+            pctEl.textContent = `Peso Final: ${fmtInput(melhor.peso_saida)} kg`;
+            break;
+        case 'custo_arroba':
+            labelTexto = 'MENOR CUSTO / @';
+            valorExibicao = melhor.custo_arroba_prod === null ? '—' : formatBRL(melhor.custo_arroba_prod);
+            descTexto = `Estratégia mais eficiente para produzir arroba (Custo Total - Bezerro).`;
+            pctEl.textContent = `Margem/cab: ${formatBRL(melhor.margem)}`;
+            break;
+    }
+
+    if (melhor.margem < 0 && criterioAvaliacao !== 'peso_saida' && criterioAvaliacao !== 'gmd') {
+        titleEl.textContent = '⚠️ Alerta: Prejuízo';
+        valEl.className = 'text-2xl sm:text-3xl font-black text-red-400 print:text-black';
+        boxEl.className = 'bg-red-900/40 backdrop-blur-md rounded-xl p-3 border border-red-500/30 text-center min-w-[220px] print:border-black';
+    } else {
+        titleEl.textContent = `Melhor Estratégia: ${melhor.nome}`;
+        valEl.className = 'text-2xl sm:text-3xl font-black text-emerald-400 print:text-black';
+        boxEl.className = 'bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/15 text-center min-w-[220px] print:border-black';
+    }
+
+    lblEl.textContent = labelTexto;
+    valEl.textContent = valorExibicao;
+    descEl.textContent = descTexto;
+
+    // Atualiza Células (Cores Semânticas)
+    document.querySelectorAll('[data-calc]').forEach(el => {
+        const cid = Number(el.dataset.calcId);
+        const key = el.dataset.calc;
+        const r = resultados.find(x => x.id === cid);
+        if (!r) return;
+
+        switch (key) {
+            case 'peso_saida': el.textContent = fmtInput(r.peso_saida); break;
+            case 'peso_medio': el.textContent = fmtInput(r.peso_medio); break;
+            case 'consumo_diario_kg': el.textContent = r.consumo_diario_kg.toFixed(3).replace('.', ','); break;
+            case 'custo_kg_racao': el.textContent = formatBRL(r.custo_kg_racao); break;
+            case 'custo_racao_total': el.textContent = formatBRL(r.custo_racao_total); break;
+            case 'valor_bezerro': el.textContent = formatBRL(r.valor_bezerro); break;
+            case 'custo_total': el.textContent = formatBRL(r.custo_total); break;
+            case 'receita': el.textContent = formatBRL(r.receita); break;
+            case 'custo_arroba_prod': el.textContent = r.custo_arroba_prod === null ? '—' : formatBRL(r.custo_arroba_prod); break;
+            
+            case 'preco_minimo_venda': {
+                el.textContent = formatBRL(r.preco_minimo_venda);
+                el.className = `py-2.5 px-3 text-center font-semibold border-r border-slate-100 ${r.preco_venda_arroba < r.preco_minimo_venda ? 'text-red-600' : 'text-emerald-600 print:text-black'}`;
+                break;
+            }
+            case 'margem_cab': {
+                el.textContent = formatBRL(r.margem);
+                el.className = `py-3 px-3 text-center border-r border-slate-100 ${r.margem >= 0 ? 'text-emerald-600' : 'text-red-600 print:text-black'}`;
+                break;
+            }
+            case 'margem_lote': {
+                const isBest = r.id === melhor.id;
+                el.className = `py-3 px-3 text-center border-r border-slate-700 ${isBest ? 'bg-emerald-600' : ''}`;
+                el.innerHTML = `${formatBRL(r.margem * globalQtd)}${isBest ? '<span class="selo-melhor block text-[9px] bg-white text-emerald-700 rounded mt-1 py-0.5 px-1 uppercase font-bold print:bg-black print:text-white">★ Destaque</span>' : ''}`;
+                break;
+            }
+            case 'margem_mensal': {
+                const isBestMensal = r.id === melhorMensal.id;
+                const isBestAbs = r.id === melhor.id;
+                const destaque = isBestMensal && !isBestAbs;
+                el.className = `py-3 px-3 text-center border-r border-slate-200 ${r.margem >= 0 ? 'text-emerald-700' : 'text-red-700 print:text-black'} ${destaque ? 'bg-slate-200' : ''}`;
+                el.innerHTML = `${formatPct(r.margem_mensal)}${destaque ? '<span class="block text-[9px] bg-slate-600 text-white rounded mt-1 py-0.5 px-1 uppercase font-bold no-print">🏆 Melhor Mensal</span>' : ''}`;
+                break;
+            }
+        }
+    });
+
+    renderChart(resultados);
+}
+
+function renderChart(resultados) {
+    const ctx = document.getElementById('chartCenarios').getContext('2d');
+    
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    const labels = resultados.map(r => r.nome.substring(0, 15) + (r.nome.length > 15 ? '...' : ''));
+    const dataReceita = resultados.map(r => r.receita * globalQtd);
+    const dataCusto = resultados.map(r => r.custo_total * globalQtd);
+
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Receita Bruta (R$)',
+                    data: dataReceita,
+                    backgroundColor: '#10b981',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Custo Total (R$)',
+                    data: dataCusto,
+                    backgroundColor: '#64748b',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Inter', size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.y);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + (value/1000).toFixed(0) + 'k';
+                        },
+                        font: { family: 'Inter', size: 10 }
+                    },
+                    grid: { color: '#e2e8f0' }
+                },
+                x: {
+                    ticks: { font: { family: 'Inter', size: 10 } },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+/* ============================================================
+   EXPORTAÇÕES E RESET
+   ============================================================ */
+function gerarWhatsApp() {
+    const metas = obterEstadoAtual().metas;
+    const resultados = cenarios.map(calcularCenario);
+    
+    let melhor = resultados[0];
+    resultados.forEach(r => {
+        let valAtual = r[criterioAvaliacao];
+        let valMelhor = melhor[criterioAvaliacao];
+        if (valAtual === null) valAtual = Infinity;
+        if (valMelhor === null) valMelhor = Infinity;
+        if (criterioAvaliacao === 'custo_arroba') {
+            if (valAtual < valMelhor) melhor = r;
+        } else {
+            if (valAtual > valMelhor) melhor = r;
+        }
+    });
+
+    let texto = `*BIPEC SIMULADOR* 🐂\n`;
+    texto += `*${metas.titulo || 'Simulação Técnica'}*\n`;
+    texto += `────────────────────\n`;
+    texto += `👤 *Consultor:* ${metas.consultor}\n`;
+    texto += `📋 *Produtor:* ${metas.produtor}\n`;
+    texto += `🏡 *Fazenda:* ${metas.fazenda} (${metas.municipio})\n`;
+    texto += `🔢 *Qtd. Cabeças:* ${globalQtd}\n`;
+    texto += `────────────────────\n\n`;
+
+    resultados.forEach((r, idx) => {
+        const icon = r.margem >= 0 ? '🟢' : '🔴';
+        const marcador = r.id === melhor.id ? ' 🥇' : '';
+        const margemLote = r.margem * globalQtd;
+        texto += `*Cenário ${idx + 1}: ${r.nome}*${marcador}\n`;
+        if (r.empresa) texto += `🏭 ${r.empresa}\n`;
+        texto += `• Tempo: ${r.tempo} dias (GMD: ${r.gmd} kg)\n`;
+        texto += `• Custo Total: ${formatBRL(r.custo_total)}\n`;
+        texto += `• Receita Bruta: ${formatBRL(r.receita)}\n`;
+        texto += `• Ponto de Equilíbrio: ${formatBRL(r.preco_minimo_venda)}/@\n`;
+        texto += `${icon} *Margem/Cab:* ${formatBRL(r.margem)}\n`;
+        texto += `💰 *Margem do Lote:* *${formatBRL(margemLote)}*\n`;
+        texto += `📈 Retorno Mensal: ${formatPct(r.margem_mensal)}\n\n`;
+    });
+
+    texto += `_Relatório via BIPEC Gestão de Dados._`;
+
+    const copiar = async () => {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(texto);
+                return true;
+            }
+        } catch (e) { }
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            return true;
+        } catch (e) { return false; }
+    };
+
+    copiar().then(ok => {
+        if (!ok) { alert('Não foi possível copiar.'); return; }
+        if (confirm('Resumo copiado! Abrir WhatsApp agora?')) {
+            window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+        }
+    });
+}
+
+function imprimirRelatorio() {
+    const metas = obterEstadoAtual().metas;
+    document.getElementById('print_consultor').textContent = metas.consultor || '—';
+    document.getElementById('print_produtor').textContent = metas.produtor || '—';
+    document.getElementById('print_titulo').textContent = metas.titulo || 'Relatório Técnico';
+    document.getElementById('print_data').textContent = metas.data ? metas.data.split('-').reverse().join('/') : '';
+
+    const original = document.title;
+    document.title = `BIPEC — ${metas.produtor || 'Relatorio'}`;
+    window.print();
+    setTimeout(() => { document.title = original; }, 1500);
+}
+
+function resetToDefault() {
+    if (!confirm('Restaurar todos os dados padrão? O backup atual não será salvo.')) return;
+    document.getElementById('meta_titulo').value = 'Avaliação de Estratégias Nutricionais';
+    document.getElementById('meta_consultor').value = 'Guilherme Alves do Val';
+    document.getElementById('meta_produtor').value = 'João da Silva';
+    document.getElementById('meta_fazenda').value = 'Fazenda Esperança';
+    document.getElementById('meta_municipio').value = 'Cuiabá - MT';
+    document.getElementById('meta_data').valueAsDate = new Date();
+    document.getElementById('global_qtd').value = 100;
+    
+    globalQtd = 100;
+    produtos = [...PRODUTOS_PADRAO];
+    cenarios = CENARIOS_PADRAO();
+    nextCenarioId = 3;
+    criterioAvaliacao = 'margem';
+    document.getElementById('criterio_avaliacao').value = criterioAvaliacao;
+    
+    salvarEstado();
+    renderProdutosLista();
+    renderApp();
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.addEventListener('beforeunload', () => salvarEstado(true));
+
+['titulo', 'consultor', 'produtor', 'fazenda', 'municipio', 'data'].forEach(k => {
+    const el = document.getElementById('meta_' + k);
+    if (el) el.addEventListener('input', salvarEstadoDebounced);
+});
+
+window.onload = function () {
+    document.getElementById('meta_data').valueAsDate = new Date();
+    carregarEstado();
+    renderProdutosLista();
+    renderApp();
+};
+</script>
+</body>
+</html>
